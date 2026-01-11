@@ -23,3 +23,10 @@ dev = [
 
 [tool.poetry.scripts]
 project = "valutatrade_hub.cli.interface:main"
+
+[tool.valutatrade]
+DATA_DIR = "data"
+RATES_TTL_SECONDS = 300
+DEFAULT_BASE = "USD"
+LOG_PATH = "logs/actions.log"
+LOG_LEVEL = "INFO"
