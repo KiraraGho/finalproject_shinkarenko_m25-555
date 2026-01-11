@@ -122,11 +122,13 @@ def main() -> None:
                 table.field_names = ["Валюта", "Баланс", f"Стоимость в {res['base']}"]
 
                 for w in res["wallets"]:
+                    value = w.get("value_in_base")
+                    value_str = f"{float(value):.2f}" if value is not None else "н/д"
                     table.add_row(
                         [
                             w["currency"],
                             f"{float(w['balance']):.4f}",
-                            f"{float(w['value_in_base']):.2f}",
+                            value_str,
                         ]
                     )
 
@@ -134,9 +136,12 @@ def main() -> None:
                 if res["wallets"]:
                     print(table)
                     print(f"ИТОГО: {float(res['total']):,.2f} {res['base']}")
+                    if not res.get("rates_ok", True) and res.get("rates_note"):
+                        print(res["rates_note"])
                 else:
                     print("Портфель пуст.")
                 continue
+
 
             if cmd == "deposit":
                 currency = args.get("currency", "")

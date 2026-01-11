@@ -15,16 +15,6 @@ from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 
 
-# Заглушка "внешнего API" (Parser Service) — сколько USD за 1 единицу валюты.
-USD_PER_UNIT: dict[str, float] = {
-    "USD": 1.0,
-    "EUR": 1.0786,
-    "RUB": 0.01016,
-    "BTC": 59337.21,
-    "ETH": 3720.00,
-}
-
-
 def _validate_username(username: str) -> str:
     if not isinstance(username, str) or not username.strip():
         raise ValidationError("Имя пользователя не может быть пустым")
@@ -108,16 +98,6 @@ def _set_balance(wallets: dict[str, dict[str, Any]], code: str, value: float) ->
     wallets[code]["balance"] = float(value)
 
 
-def _stub_fetch_rate(from_code: str, to_code: str) -> float:
-    """
-    Заглушка внешнего API/Parser Service
-    Если валюты нет в USD_PER_UNIT — считаем это проблемой источника
-    """
-    if from_code not in USD_PER_UNIT or to_code not in USD_PER_UNIT:
-        raise ApiRequestError(f"нет данных у источника для пары {from_code}→{to_code}")
-    return USD_PER_UNIT[from_code] / USD_PER_UNIT[to_code]
-
-
 @log_action("REGISTER", verbose=False)
 def register_user(username: str, password: str) -> dict[str, Any]:
     username = _validate_username(username)
@@ -180,12 +160,12 @@ def login_user(username: str, password: str) -> dict[str, Any]:
 @log_action("GET_RATE", verbose=False)
 def get_rate(from_currency: str, to_currency: str) -> dict[str, Any]:
     """
-    Валидируем коды через get_currency() -> CurrencyNotFoundError
-    Берём TTL из SettingsLoader
-    Пытаемся взять из rates.json если свежее TTL
-    Иначе обновляем через заглушку API, иначе ApiRequestError
+    Валидируем валюты через get_currency()
+    Читаем rates.json в формате {"pairs": {...}, "last_refresh": "..."}
+    Проверяем TTL из SettingsLoader
+    Если данных нет/устарели -> ApiRequestError с подсказкой выполнить update-rates
     """
-    from_cur = get_currency(from_currency) 
+    from_cur = get_currency(from_currency)
     to_cur = get_currency(to_currency)
 
     from_code = from_cur.code
@@ -198,36 +178,47 @@ def get_rate(from_currency: str, to_currency: str) -> dict[str, Any]:
     db = DatabaseManager()
     cache = db.read_rates()
 
-    # свежий кеш
-    if pair in cache and isinstance(cache[pair], dict):
-        updated_at = _parse_iso(str(cache[pair].get("updated_at", "")))
-        if updated_at and datetime.now() - updated_at <= timedelta(seconds=ttl):
-            try:
-                rate_val = float(cache[pair]["rate"])
-                return {"pair": pair, "rate": rate_val, "updated_at": updated_at.isoformat()}
-            except Exception:
-                pass
+    pairs = cache.get("pairs") if isinstance(cache, dict) else None
+    if not isinstance(pairs, dict) or not pairs:
+        raise ApiRequestError("Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные.")
 
-    # запрос к API
-    rate_val = _stub_fetch_rate(from_code, to_code)
+    info = pairs.get(pair)
+    if not isinstance(info, dict):
+        raise ApiRequestError(f"Курс {pair} не найден в кеше. Выполните 'update-rates'.")
 
-    cache[pair] = {"rate": rate_val, "updated_at": _now_iso()}
-    cache["source"] = "StubRates"
-    cache["last_refresh"] = _now_iso()
-    db.write_rates(cache)
+    updated_at = _parse_iso(str(info.get("updated_at", "")))
+    if not updated_at:
+        raise ApiRequestError(f"Курс {pair} в кеше повреждён. Выполните 'update-rates'.")
 
-    return {"pair": pair, "rate": rate_val, "updated_at": cache[pair]["updated_at"]}
+    from datetime import timezone
+    
+    now = datetime.now(timezone.utc) if updated_at.tzinfo is not None else datetime.now()
+    age = now - updated_at
+
+    if age > timedelta(seconds=ttl):
+        raise ApiRequestError(
+            f"Данные для {pair} устарели (обновлено: {updated_at.isoformat()}). Выполните 'update-rates'."
+        )
+
+    try:
+        rate_val = float(info["rate"])
+    except Exception as e:
+        raise ApiRequestError(f"Курс {pair} в кеше имеет некорректный формат. Выполните 'update-rates'.") from e
+
+    source = str(info.get("source", "unknown"))
+    return {"pair": pair, "rate": rate_val, "updated_at": updated_at.isoformat(), "source": source}
 
 
 def show_portfolio(user_id: int, base_currency: str | None = None) -> dict[str, Any]:
     """
-    Показываем портфель + оценку в base валюте.
-    base по умолчанию берём из SettingsLoader.DEFAULT_BASE
+    Устойчивый вывод портфеля:
+    - если курс недоступен/устарел -> value_in_base=None и отмечаем, что есть проблемы с курсами
+    - в ответ добавляем flags: rates_ok (bool) и rates_note (str|None)
     """
     settings = SettingsLoader()
     base = (base_currency or str(settings.get("DEFAULT_BASE", "USD"))).strip().upper()
 
-    # валидируем base через реестр валют
+    # валидируем базовую валюту через реестр
     get_currency(base)
 
     db = DatabaseManager()
@@ -236,33 +227,58 @@ def show_portfolio(user_id: int, base_currency: str | None = None) -> dict[str, 
     wallets: dict[str, dict[str, Any]] = p.get("wallets", {})
 
     if not wallets:
-        return {"base": base, "wallets": [], "total": 0.0}
+        return {"base": base, "wallets": [], "total": 0.0, "rates_ok": True, "rates_note": None}
 
     items: list[dict[str, Any]] = []
     total = 0.0
 
+    rates_ok = True
+    rates_note: str | None = None
+
     for code in sorted(wallets.keys()):
-        # валидируем код через реестр
+        # валидируем код через реестр валют
         cur = get_currency(code)
         balance = _get_balance(wallets, cur.code)
 
-        rate_info = get_rate(cur.code, base)
-        value_in_base = balance * float(rate_info["rate"])
-        total += value_in_base
+        value_in_base: float | None = None
+        rate_val: float | None = None
+        updated_at: str | None = None
+        source: str | None = None
+
+        try:
+            rate_info = get_rate(cur.code, base)
+            rate_val = float(rate_info["rate"])
+            updated_at = str(rate_info.get("updated_at"))
+            source = str(rate_info.get("source", "unknown"))
+            value_in_base = balance * rate_val
+            total += value_in_base
+        except ApiRequestError:
+            # курс недоступен/устарел — не падаем
+            rates_ok = False
+            rates_note = "Курсы устарели/недоступны, выполните update-rates."
+            value_in_base = None
 
         items.append(
             {
                 "currency": cur.code,
                 "balance": balance,
-                "rate": float(rate_info["rate"]),
+                "rate": rate_val,
                 "value_in_base": value_in_base,
+                "updated_at": updated_at,
+                "source": source,
             }
         )
 
-    # портфели не меняли — но на всякий случай (если создали запись)
+    # если портфель только что создавался — сохраняем
     db.write_portfolios(portfolios)
 
-    return {"base": base, "wallets": items, "total": total}
+    return {
+        "base": base,
+        "wallets": items,
+        "total": total,
+        "rates_ok": rates_ok,
+        "rates_note": rates_note,
+    }
 
 
 def deposit_funds(user_id: int, currency: str, amount: Any) -> dict[str, Any]:
