@@ -8,6 +8,7 @@ from prettytable import PrettyTable
 from valutatrade_hub.core.models import InsufficientFundsError, ValidationError
 from valutatrade_hub.core.usecases import (
     buy_currency,
+    deposit_funds,
     get_rate,
     login_user,
     register_user,
@@ -46,6 +47,7 @@ def _print_help() -> None:
         "  buy --currency <str> --amount <float>\n"
         "  sell --currency <str> --amount <float>\n"
         "  get-rate --from <str> --to <str>\n"
+        "  deposit --currency <str> --amount <float>\n"
         "  help\n"
         "  exit\n"
     )
@@ -96,7 +98,7 @@ def main() -> None:
                 continue
 
             # команды ниже — только для залогиненного
-            if cmd in {"show-portfolio", "buy", "sell"}:
+            if cmd in {"show-portfolio", "deposit", "buy", "sell"}:
                 if session["user_id"] is None:
                     raise ValidationError("Сначала выполните login")
 
@@ -122,6 +124,16 @@ def main() -> None:
                     print(f"ИТОГО: {float(res['total']):,.2f} {res['base']}")
                 else:
                     print("Портфель пуст.")
+                continue
+
+            if cmd == "deposit":
+                currency = args.get("currency", "")
+                amount = args.get("amount", "")
+                res = deposit_funds(user_id=int(session["user_id"]), currency=currency, amount=amount)
+                print(
+                    f"Пополнение выполнено: +{res['amount']:.2f} {res['currency']}\n"
+                    f"- {res['currency']}: было {res['before']:.2f} → стало {res['after']:.2f}"
+                )
                 continue
 
             if cmd == "buy":

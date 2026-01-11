@@ -265,3 +265,21 @@ def sell_currency(user_id: int, currency: str, amount: Any, base_currency: str =
         "before": {cur: before_cur, base: before_base},
         "after": {cur: float(wallets[cur]["balance"]), base: float(wallets[base]["balance"])},
     }
+
+def deposit_funds(user_id: int, currency: str, amount: Any) -> dict[str, Any]:
+    cur = _validate_currency(currency)
+    qty = _validate_amount(amount)
+
+    portfolios = load_portfolios()
+    p = get_or_create_portfolio_record(portfolios, user_id=user_id)
+    wallets: dict[str, dict[str, Any]] = p["wallets"]
+
+    if cur not in wallets:
+        wallets[cur] = {"balance": 0.0}
+
+    before = float(wallets[cur].get("balance", 0.0))
+    wallets[cur]["balance"] = before + qty
+
+    save_portfolios(portfolios)
+
+    return {"currency": cur, "amount": qty, "before": before, "after": float(wallets[cur]["balance"])}
