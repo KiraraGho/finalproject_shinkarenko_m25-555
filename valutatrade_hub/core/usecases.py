@@ -1,4 +1,4 @@
-ffrom __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
@@ -17,8 +17,6 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 
 # Заглушка "внешнего API" (Parser Service) — сколько USD за 1 единицу валюты.
-# Для расчёта любых пар используем кросс-курс через USD:
-# rate(from->to) = USD_per_from / USD_per_to
 USD_PER_UNIT: dict[str, float] = {
     "USD": 1.0,
     "EUR": 1.0786,
@@ -113,8 +111,8 @@ def _set_balance(wallets: dict[str, dict[str, Any]], code: str, value: float) ->
 
 def _stub_fetch_rate(from_code: str, to_code: str) -> float:
     """
-    Заглушка внешнего API/Parser Service.
-    Если валюты нет в USD_PER_UNIT — считаем это проблемой источника.
+    Заглушка внешнего API/Parser Service
+    Если валюты нет в USD_PER_UNIT — считаем это проблемой источника
     """
     if from_code not in USD_PER_UNIT or to_code not in USD_PER_UNIT:
         raise ApiRequestError(f"нет данных у источника для пары {from_code}→{to_code}")
@@ -183,12 +181,12 @@ def login_user(username: str, password: str) -> dict[str, Any]:
 @log_action("GET_RATE", verbose=False)
 def get_rate(from_currency: str, to_currency: str) -> dict[str, Any]:
     """
-    1) Валидируем коды через get_currency() -> CurrencyNotFoundError
-    2) Берём TTL из SettingsLoader
-    3) Пытаемся взять из rates.json если свежее TTL
-    4) Иначе обновляем через заглушку API, иначе ApiRequestError
+    Валидируем коды через get_currency() -> CurrencyNotFoundError
+    Берём TTL из SettingsLoader
+    Пытаемся взять из rates.json если свежее TTL
+    Иначе обновляем через заглушку API, иначе ApiRequestError
     """
-    from_cur = get_currency(from_currency)  # может бросить CurrencyNotFoundError
+    from_cur = get_currency(from_currency) 
     to_cur = get_currency(to_currency)
 
     from_code = from_cur.code
@@ -201,7 +199,7 @@ def get_rate(from_currency: str, to_currency: str) -> dict[str, Any]:
     db = DatabaseManager()
     cache = db.read_rates()
 
-    # 1) свежий кеш?
+    # свежий кеш
     if pair in cache and isinstance(cache[pair], dict):
         updated_at = _parse_iso(str(cache[pair].get("updated_at", "")))
         if updated_at and datetime.now() - updated_at <= timedelta(seconds=ttl):
@@ -209,10 +207,9 @@ def get_rate(from_currency: str, to_currency: str) -> dict[str, Any]:
                 rate_val = float(cache[pair]["rate"])
                 return {"pair": pair, "rate": rate_val, "updated_at": updated_at.isoformat()}
             except Exception:
-                # поломанные данные кеша — просто перезапишем ниже
                 pass
 
-    # 2) "запрос к API"
+    # запрос к API
     rate_val = _stub_fetch_rate(from_code, to_code)
 
     cache[pair] = {"rate": rate_val, "updated_at": _now_iso()}
