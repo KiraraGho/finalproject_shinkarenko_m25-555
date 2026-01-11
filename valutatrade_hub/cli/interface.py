@@ -48,20 +48,48 @@ def _parse_flags(tokens: list[str]) -> dict[str, str]:
     return args
 
 
-def _print_help() -> None:
+def print_help() -> None:
     print(
-        "\nКоманды:\n"
-        "  register --username <str> --password <str>\n"
-        "  login --username <str> --password <str>\n"
-        "  show-portfolio [--base <str>]\n"
-        "  buy --currency <str> --amount <float>\n"
-        "  sell --currency <str> --amount <float>\n"
-        "  get-rate --from <str> --to <str>\n"
-        "  deposit --currency <str> --amount <float>\n"
-        "  update-rates [--source coingecko|exchangerate]\n"
-        "  show-rates [--currency <CODE>] [--top <N>] [--base <CODE>]\n"
-        "  help\n"
-        "  exit\n"
+        """
+Доступные команды:
+
+Пользователи:
+  register --username <str> --password <str>
+      Регистрация нового пользователя.
+
+  login --username <str> --password <str>
+      Вход в систему под существующим пользователем.
+
+Портфель и операции:
+  deposit --currency <CODE> --amount <float>
+      Пополнение кошелька указанной валюты.
+
+  buy --currency <CODE> --amount <float>
+      Покупка валюты по текущему курсу.
+
+  sell --currency <CODE> --amount <float>
+      Продажа валюты по текущему курсу.
+
+  show-portfolio [--base <CODE>]
+      Просмотр портфеля и общей стоимости (по умолчанию в USD).
+
+Курсы валют:
+  update-rates [--source coingecko|exchangerate]
+      Обновить курсы валют через Parser Service.
+
+  show-rates [--currency <CODE>] [--top <N>] [--base <CODE>]
+      Показать курсы валют из локального кеша.
+
+  get-rate --from <CODE> --to <CODE>
+      Получить курс одной валюты к другой.
+
+Служебные команды:
+  help
+      Показать это сообщение.
+
+  exit
+      Выход из приложения.
+"""
     )
 
 
@@ -87,7 +115,7 @@ def main() -> None:
                 return
 
             if cmd == "help":
-                _print_help()
+                print_help()
                 continue
 
             if cmd == "register":
