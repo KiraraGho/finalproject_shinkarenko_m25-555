@@ -140,8 +140,15 @@ RATES_TTL_SECONDS = 300
 Если курсы устарели, Core Service сообщает пользователю и предлагает выполнить:
 update-rates
 
+---
+
 ## Логирование
 - Логи операций пишутся в logs/actions.log
 - Используется декоратор @log_action
 - Логируются операции buy / sell (и другие ключевые действия)
 
+---
+
+## Демонстраниция Asciinema
+**Запись работы приложения:**
+https://asciinema.org/a/AcJdYiYlUzJZyszU
