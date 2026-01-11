@@ -187,11 +187,24 @@ def main() -> None:
             if cmd == "get-rate":
                 from_c = args.get("from", "")
                 to_c = args.get("to", "")
+
                 r = get_rate(from_currency=from_c, to_currency=to_c)
-                inv = get_rate(from_currency=to_c, to_currency=from_c)
-                print(f"Курс {from_c.upper()}→{to_c.upper()}: {float(r['rate']):.8f} (обновлено: {r['updated_at']})")
-                print(f"Обратный курс {to_c.upper()}→{from_c.upper()}: {float(inv['rate']):.8f}")
+                print(
+                    f"Курс {from_c.upper()}→{to_c.upper()}: {float(r['rate']):.8f} "
+                    f"(обновлено: {r['updated_at']}, источник: {r.get('source', '-')})"
+                )
+
+                # Обратный курс:
+                # Пытаемся взять из кеша напрямую, а если пары нет — считаем как 1 / прямой курс
+                try:
+                    inv = get_rate(from_currency=to_c, to_currency=from_c)
+                    inv_rate = float(inv["rate"])
+                except ApiRequestError:
+                    inv_rate = 1.0 / float(r["rate"]) if float(r["rate"]) != 0 else 0.0
+
+                print(f"Обратный курс {to_c.upper()}→{from_c.upper()}: {inv_rate:.8f}")
                 continue
+
 
             if cmd == "update-rates":
                 src = args.get("source")  # coingecko / exchangerate
