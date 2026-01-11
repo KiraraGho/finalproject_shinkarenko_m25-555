@@ -22,4 +22,4 @@ dev = [
 ]
 
 [tool.poetry.scripts]
-project = "finalproject_shinkarenko_m25_555.cli:main"
+project = "valutatrade_hub.cli.interface:main"
