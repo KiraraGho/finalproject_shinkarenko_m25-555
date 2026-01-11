@@ -16,6 +16,13 @@ from valutatrade_hub.core.usecases import (
     show_portfolio,
 )
 from valutatrade_hub.core.utils import ensure_storage
+from valutatrade_hub.core.exceptions import (
+    InsufficientFundsError,
+    CurrencyNotFoundError,
+    ApiRequestError,
+    ValidationError,
+)
+from valutatrade_hub.core.currencies import supported_codes
 
 
 def _parse_flags(tokens: list[str]) -> dict[str, str]:
@@ -183,10 +190,25 @@ def main() -> None:
 
             print("Неизвестная команда. Введите help.")
 
-        except (ValidationError, InsufficientFundsError) as e:
+        except InsufficientFundsError as e:
             print(str(e))
+
+        except CurrencyNotFoundError as e:
+            print(str(e))
+            print("Подсказка: используйте команду get-rate --from <CUR> --to <CUR>")
+            print("Поддерживаемые валюты:", ", ".join(supported_codes()))
+
+        except ApiRequestError as e:
+            print(str(e))
+            print("Попробуйте повторить позже или проверьте подключение к сети.")
+
+        except ValidationError as e:
+            print(str(e))
+
         except KeyboardInterrupt:
             print("\nВыход.")
             return
+
         except Exception as e:
             print(f"Непредвиденная ошибка: {e}")
+
