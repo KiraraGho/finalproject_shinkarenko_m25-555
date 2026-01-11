@@ -156,7 +156,7 @@ def main() -> None:
             if cmd == "buy":
                 currency = args.get("currency", "")
                 amount = args.get("amount", "")
-                res = buy_currency(user_id=int(session["user_id"]), currency=currency, amount=amount, base_currency="USD")
+                res = buy_currency(user_id=int(session["user_id"]), currency=currency, amount=amount)
                 print(
                     f"Покупка выполнена: {res['amount']:.4f} {res['currency']} "
                     f"по курсу {res['rate']:.2f} {res['base']}/{res['currency']}"
@@ -174,7 +174,7 @@ def main() -> None:
             if cmd == "sell":
                 currency = args.get("currency", "")
                 amount = args.get("amount", "")
-                res = sell_currency(user_id=int(session["user_id"]), currency=currency, amount=amount, base_currency="USD")
+                res = sell_currency(user_id=int(session["user_id"]), currency=currency, amount=amount)
                 print(
                     f"Продажа выполнена: {res['amount']:.4f} {res['currency']} "
                     f"по курсу {res['rate']:.2f} {res['base']}/{res['currency']}"
