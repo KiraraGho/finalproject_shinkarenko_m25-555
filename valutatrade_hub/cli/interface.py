@@ -5,7 +5,6 @@ from typing import Any
 
 from prettytable import PrettyTable
 
-from valutatrade_hub.core.models import InsufficientFundsError, ValidationError
 from valutatrade_hub.core.usecases import (
     buy_currency,
     deposit_funds,

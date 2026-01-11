@@ -6,7 +6,6 @@ from typing import Any
 from valutatrade_hub.core.currencies import get_currency
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
-    CurrencyNotFoundError,
     InsufficientFundsError,
     ValidationError,
 )
