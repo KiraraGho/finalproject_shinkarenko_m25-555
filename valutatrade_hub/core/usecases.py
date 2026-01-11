@@ -240,6 +240,26 @@ def show_portfolio(user_id: int, base_currency: str | None = None) -> dict[str, 
         cur = get_currency(code)
         balance = _get_balance(wallets, cur.code)
 
+        # базовая валюта: курс 1.0, не обращаемся к кешу
+        if cur.code == base:
+            value_in_base = balance
+            rate_val = 1.0
+            updated_at = None
+            source = "local"
+            total += value_in_base
+
+            items.append(
+                {
+                    "currency": cur.code,
+                    "balance": balance,
+                    "rate": rate_val,
+                    "value_in_base": value_in_base,
+                    "updated_at": updated_at,
+                    "source": source,
+                }
+            )
+            continue
+
         value_in_base: float | None = None
         rate_val: float | None = None
         updated_at: str | None = None
