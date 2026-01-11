@@ -1,0 +1,25 @@
+[project]
+name = "finalproject-shinkarenko-m25-555"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Shinkarenko",email = "kibersorder@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "prettytable (>=3.17.0,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.14.11,<0.15.0)"
+]
+
+[tool.poetry.scripts]
+project = "finalproject_shinkarenko_m25_555.cli:main"
