@@ -10,6 +10,14 @@
 
 ---
 
+## Автор
+
+Проект выполнен студенткой группы **М25-555**  
+**Шинкаренко Викторией**
+
+
+---
+
 ## Возможности
 
 - регистрация и авторизация пользователей;
@@ -82,23 +90,42 @@ poetry run project
 
 ## Команды CLI
 **Пользователи**
+```text
 register --username <str> --password <str>
+    Регистрация нового пользователя.
 login --username <str> --password <str>
+    Вход в систему под существующим пользователем.
+```
 
 **Портфель и операции**
+```text
 deposit --currency <CODE> --amount <float>
+    Пополнение кошелька указанной валюты.
 buy --currency <CODE> --amount <float>
+    Покупка валюты по текущему курсу.
 sell --currency <CODE> --amount <float>
+    Продажа валюты по текущему курсу.
 show-portfolio [--base <CODE>]
+    Просмотр портфеля и общей стоимости (по умолчанию в USD).
+```
 
 **Курсы валют**
+```text
 update-rates [--source coingecko|exchangerate]
+    Обновить курсы валют через Parser Service.
 show-rates [--currency <CODE>] [--top <N>] [--base <CODE>]
+    Показать курсы валют из локального кеша.
 get-rate --from <CODE> --to <CODE>
+    Получить курс одной валюты к другой.
+```
 
 **Служебные**
+```text
 help
+    Показать это сообщение.
 exit
+    Выход из приложения.
+```
 
 ---
 
@@ -106,8 +133,10 @@ exit
 - Актуальные курсы хранятся в data/rates.json
 - История обновлений — в data/exchange_rates.json
 - Срок актуальности курсов (TTL) задаётся в pyproject.toml:
+```toml
 [tool.valutatrade]
 RATES_TTL_SECONDS = 300
+```
 Если курсы устарели, Core Service сообщает пользователю и предлагает выполнить:
 update-rates
 
