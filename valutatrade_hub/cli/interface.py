@@ -22,6 +22,10 @@ from valutatrade_hub.core.exceptions import (
     ValidationError,
 )
 from valutatrade_hub.core.currencies import supported_codes
+from valutatrade_hub.parser_service.config import ParserConfig
+from valutatrade_hub.parser_service.api_clients import CoinGeckoClient, ExchangeRateApiClient
+from valutatrade_hub.parser_service.updater import RatesUpdater
+from valutatrade_hub.parser_service.storage import read_json
 
 
 def _parse_flags(tokens: list[str]) -> dict[str, str]:
@@ -54,6 +58,8 @@ def _print_help() -> None:
         "  sell --currency <str> --amount <float>\n"
         "  get-rate --from <str> --to <str>\n"
         "  deposit --currency <str> --amount <float>\n"
+        "  update-rates [--source coingecko|exchangerate]\n"
+        "  show-rates [--currency <CODE>] [--top <N>] [--base <CODE>]\n"
         "  help\n"
         "  exit\n"
     )
@@ -185,6 +191,70 @@ def main() -> None:
                 inv = get_rate(from_currency=to_c, to_currency=from_c)
                 print(f"Курс {from_c.upper()}→{to_c.upper()}: {float(r['rate']):.8f} (обновлено: {r['updated_at']})")
                 print(f"Обратный курс {to_c.upper()}→{from_c.upper()}: {float(inv['rate']):.8f}")
+                continue
+
+            if cmd == "update-rates":
+                src = args.get("source")  # coingecko / exchangerate
+                cfg = ParserConfig()
+                updater = RatesUpdater(
+                    config=cfg,
+                    clients=[
+                        CoinGeckoClient(cfg),
+                        ExchangeRateApiClient(cfg),
+                    ],
+                )
+                res = updater.run_update(source=src)
+                if res["errors"]:
+                    print("Обновление завершено с ошибками. Проверьте логи.")
+                    for e in res["errors"]:
+                        print("-", e)
+                print(f"Update successful. Total rates updated: {res['updated']}. Last refresh: {res['last_refresh']}")
+                continue
+
+            if cmd == "show-rates":
+                currency = args.get("currency")
+                top = args.get("top")
+                base = args.get("base")  # опционально, сейчас просто фильтр по *_BASE
+
+                cache = read_json("data/rates.json", default={})
+                pairs = cache.get("pairs") if isinstance(cache, dict) else None
+                if not isinstance(pairs, dict) or not pairs:
+                    print("Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные.")
+                    continue
+
+                items = []
+                for pair, info in pairs.items():
+                    if not isinstance(info, dict):
+                        continue
+                    if base and not pair.endswith(f"_{base.strip().upper()}"):
+                        continue
+                    if currency:
+                        c = currency.strip().upper()
+                        if not (pair.startswith(f"{c}_") or pair.endswith(f"_{c}")):
+                            continue
+                    items.append((pair, float(info.get("rate", 0.0)), str(info.get("updated_at", "")), str(info.get("source", ""))))
+
+                if not items:
+                    if currency:
+                        print(f"Курс для '{currency.strip().upper()}' не найден в кеше.")
+                    else:
+                        print("Нет данных по выбранному фильтру.")
+                    continue
+
+                if top:
+                    try:
+                        n = int(top)
+                        items.sort(key=lambda x: x[1], reverse=True)
+                        items = items[:n]
+                    except Exception:
+                        print("--top должен быть целым числом")
+                        continue
+                else:
+                    items.sort(key=lambda x: x[0])
+
+                print(f"Rates from cache (updated at {cache.get('last_refresh', '-')})")
+                for pair, rate, updated_at, source in items:
+                    print(f"- {pair}: {rate} (updated_at={updated_at}, source={source})")
                 continue
 
             print("Неизвестная команда. Введите help.")
